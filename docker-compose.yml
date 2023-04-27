@@ -1,0 +1,153 @@
+version: '3.9'
+#################### NETWORKS ####################
+networks:
+  user-net:
+    name: "user-net"
+
+  rabbit-net:
+    name: "rabbit-net"
+
+  sql-net:
+    name: "sql-net"
+    external: false
+
+  web-net:
+    name: "web-net"
+
+#################### SERVICES ####################
+services:
+  #################### USER DATA ####################
+  user.data:
+    container_name: user.data
+    image: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - user-net
+   
+  #################### SQL DATA ####################
+  sql.data:
+    container_name: sql.data
+    build:
+      context: .
+      dockerfile: ./Database/Dockerfile.database
+    networks:
+      - sql-net
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./Volume/database:/var/opt/mssql/data
+  
+  #################### RABBITMQ ####################
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    networks:
+      - rabbit-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  #################### APPLICANTS API ####################
+  applicants.api:
+    container_name: applicants.api
+    build:
+      context: .
+      dockerfile: ./Services/Dockerfile.applicants
+    environment:
+      - ConnectionString=Server=sql.data;User=sa;Password=Pass@word;Database=dotnetgigs.applicants;
+      - HostRabbitmq=rabbitmq
+    ports:
+      - "8081:80"
+    networks:
+      - user-net
+      - rabbit-net
+      - sql-net
+      - web-net
+    depends_on:
+      sql.data:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      user.data:
+        condition: service_started
+    links: 
+      - rabbitmq
+    restart: on-failure:5
+
+  #################### IDENTITY API ####################
+  service-api-identity:
+    container_name: identity.api
+    build:
+      context: .
+      dockerfile: ./Services/Dockerfile.identity
+    environment:
+      - RedisHost=user.data:6379
+      - HostRabbitmq=rabbitmq
+    ports:
+      - "8084:80"
+    networks:
+      - user-net
+      - rabbit-net
+      - sql-net
+      - web-net
+    depends_on:
+      sql.data:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      user.data:
+        condition: service_started
+    links: 
+      - rabbitmq
+    restart: on-failure:5
+
+  #################### JOBS API ####################
+  service-api-jobs:
+    container_name: jobs.api
+    build:
+      context: .
+      dockerfile: ./Services/Dockerfile.jobs
+    environment:
+      - ConnectionString=Server=sql.data;User=sa;Password=Pass@word;Database=dotnetgigs.jobs;
+      - HostRabbitmq=rabbitmq
+    ports:
+      - "8083:80"
+    networks:
+      - user-net
+      - rabbit-net
+      - sql-net
+      - web-net
+    depends_on:
+      sql.data:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      user.data:
+        condition: service_started      
+    links: 
+      - rabbitmq
+    restart: on-failure:5
+
+  #################### WEB ####################
+  web:
+      container_name: web
+      build:
+        context: .
+        dockerfile: ./Web/Dockerfile.web
+      environment:
+        - ApiSettings__IdentityApiUrl=http://service-api-identity
+        - ApiSettings__JobsApiUrl=http://service-api-jobs
+      ports:
+        - "80:80"
+      networks:
+        - web-net
+      depends_on:
+        - applicants.api
+        - service-api-identity
+        - service-api-jobs

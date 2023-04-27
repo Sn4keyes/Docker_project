@@ -1,0 +1,14 @@
+FROM mcr.microsoft.com/mssql/server:2017-latest
+
+ENV ACCEPT_EULA=Y
+ENV SA_PASSWORD=Pass@word
+
+COPY Database/entrypoint.sh home/entrypoint.sh
+COPY Database/SqlCmdStartup.sh home/SqlCmdStartup.sh
+COPY Database/SqlCmdScript.sql home/SqlCmdScript.sql
+
+RUN chmod +x ./home/SqlCmdStartup.sh
+
+CMD /bin/bash ./home/entrypoint.sh
+
+EXPOSE 1433

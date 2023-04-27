@@ -1,0 +1,3 @@
+is_global = true
+build_property.RootNamespace = identity.api
+build_property.ProjectDir = c:\Users\hugos\Documents\Ecoles\Ynov\Projets\Docker_project\Services\Identity.Api\
