@@ -49,7 +49,7 @@ services:
       - rabbit-net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 3
 
@@ -76,8 +76,6 @@ services:
         condition: service_healthy
       user.data:
         condition: service_started
-    links: 
-      - rabbitmq
     restart: on-failure:5
 
   #################### IDENTITY API ####################
@@ -103,8 +101,6 @@ services:
         condition: service_healthy
       user.data:
         condition: service_started
-    links: 
-      - rabbitmq
     restart: on-failure:5
 
   #################### JOBS API ####################
@@ -130,8 +126,6 @@ services:
         condition: service_healthy
       user.data:
         condition: service_started      
-    links: 
-      - rabbitmq
     restart: on-failure:5
 
   #################### WEB ####################
